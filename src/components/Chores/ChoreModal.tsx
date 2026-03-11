@@ -4,16 +4,13 @@ import { format } from 'date-fns'
 import RecurrenceSelector from './RecurrenceSelector'
 import type { Chore, TeamMember } from '../../types'
 
-const COLORS = [
-  '#0078d4', '#107c10', '#d83b01', '#8764b8', '#038387',
-  '#ca5010', '#e3008c', '#00b7c3', '#7a7574', '#004b50',
-]
-
 type ChoreFormData = Omit<Chore, 'id' | 'rotationIndex' | 'createdBy'> & {
   id?: string
   rotationIndex?: number
   createdBy?: string
 }
+
+const UNASSIGNED_COLOR = '#a19f9d'
 
 const defaultChore: ChoreFormData = {
   title: '',
@@ -25,7 +22,7 @@ const defaultChore: ChoreFormData = {
   recurrenceEndDate: '',
   assignedTo: null,
   autoRotate: false,
-  color: '#0078d4',
+  color: UNASSIGNED_COLOR,
 }
 
 interface ChoreModalProps {
@@ -186,16 +183,26 @@ export default function ChoreModal({ chore, team, onSave, onDelete, onClose }: C
           {/* Assignment */}
           <div>
             <label className="block text-sm font-medium text-outlook-text mb-1">Assign To</label>
-            <select
-              value={form.assignedTo || ''}
-              onChange={(e) => set('assignedTo', e.target.value || null)}
-              className="w-full border border-outlook-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue"
-            >
-              <option value="">— Unassigned —</option>
-              {team.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-5 h-5 rounded-full flex-shrink-0 transition-colors"
+                style={{ backgroundColor: form.color }}
+              />
+              <select
+                value={form.assignedTo || ''}
+                onChange={(e) => {
+                  const id = e.target.value || null
+                  const memberColor = id ? team.find((m) => m.id === id)?.color : undefined
+                  setForm((f) => ({ ...f, assignedTo: id, color: memberColor ?? UNASSIGNED_COLOR }))
+                }}
+                className="flex-1 border border-outlook-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue"
+              >
+                <option value="">— Unassigned —</option>
+                {team.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Auto-rotate */}
@@ -214,24 +221,6 @@ export default function ChoreModal({ chore, team, onSave, onDelete, onClose }: C
                 Each instance will be assigned to the next team member in round-robin order.
               </p>
             )}
-          </div>
-
-          {/* Color */}
-          <div>
-            <label className="block text-sm font-medium text-outlook-text mb-2">Color</label>
-            <div className="flex gap-2 flex-wrap">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => set('color', c)}
-                  className={`w-7 h-7 rounded-full border-2 transition-transform
-                    ${form.color === c ? 'border-gray-800 scale-110' : 'border-transparent hover:scale-105'}`}
-                  style={{ backgroundColor: c }}
-                  title={c}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Actions */}

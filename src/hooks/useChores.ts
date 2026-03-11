@@ -50,7 +50,7 @@ export const useChores = (team: TeamMember[]): UseChoresReturn => {
 
     const newInstances = chore.isRecurring
       ? expandRecurringChore(chore, team)
-      : createSingleInstance(chore)
+      : createSingleInstance(chore, team)
 
     const updatedInstances = [...choreInstances, ...newInstances]
     persistInstances(updatedInstances)

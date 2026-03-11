@@ -5,6 +5,11 @@ import type { TeamMember } from '../../types'
 const ROLES = ['admin', 'member'] as const
 type Role = typeof ROLES[number]
 
+export const MEMBER_COLORS = [
+  '#0078d4', '#107c10', '#d83b01', '#8764b8', '#038387',
+  '#ca5010', '#004b50', '#7a7574', '#e3008c', '#00b7c3',
+]
+
 interface CurrentUser {
   id: string
   name: string
@@ -15,7 +20,7 @@ interface CurrentUser {
 interface TeamPanelProps {
   team: TeamMember[]
   currentUser: CurrentUser | null
-  onAddMember: (memberData: Omit<TeamMember, 'id' | 'color'>) => TeamMember
+  onAddMember: (memberData: Omit<TeamMember, 'id'>) => TeamMember
   onUpdateMember: (id: string, updates: Partial<TeamMember>) => void
   onRemoveMember: (id: string) => void
 }
@@ -24,6 +29,7 @@ interface MemberForm {
   name: string
   email: string
   role: Role
+  color: string
 }
 
 interface FormErrors {
@@ -39,17 +45,48 @@ function validateForm(form: MemberForm): FormErrors {
   return e
 }
 
+function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-outlook-text mb-1.5">Color</label>
+      <div className="flex gap-2 flex-wrap">
+        {MEMBER_COLORS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChange(c)}
+            className="w-7 h-7 rounded-full transition-transform hover:scale-110 focus:outline-none"
+            style={{
+              backgroundColor: c,
+              boxShadow: value === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined,
+              transform: value === c ? 'scale(1.15)' : undefined,
+            }}
+            title={c}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMember, onRemoveMember }: TeamPanelProps) {
   const isAdmin = currentUser?.role === 'admin'
 
+  const nextAvailableColor = () => {
+    const used = team.map((m) => m.color)
+    return MEMBER_COLORS.find((c) => !used.includes(c)) ?? MEMBER_COLORS[0]
+  }
+
+  const emptyAddForm = (): MemberForm => ({ name: '', email: '', role: 'member', color: nextAvailableColor() })
+
   // Add form state
   const [showAddForm, setShowAddForm] = useState(false)
-  const [addForm, setAddForm] = useState<MemberForm>({ name: '', email: '', role: 'member' })
+  const [addForm, setAddForm] = useState<MemberForm>(emptyAddForm)
   const [addErrors, setAddErrors] = useState<FormErrors>({})
 
-  // Edit form state — keyed by member id
+  // Edit form state
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<MemberForm>({ name: '', email: '', role: 'member' })
+  const [editForm, setEditForm] = useState<MemberForm>({ name: '', email: '', role: 'member', color: MEMBER_COLORS[0] })
   const [editErrors, setEditErrors] = useState<FormErrors>({})
 
   const setAdd = <K extends keyof MemberForm>(field: K, val: MemberForm[K]) =>
@@ -62,33 +99,26 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
     e.preventDefault()
     const errors = validateForm(addForm)
     if (Object.keys(errors).length > 0) { setAddErrors(errors); return }
-    onAddMember({ name: addForm.name.trim(), email: addForm.email.trim(), role: addForm.role })
-    setAddForm({ name: '', email: '', role: 'member' })
+    onAddMember({ name: addForm.name.trim(), email: addForm.email.trim(), role: addForm.role, color: addForm.color })
+    setAddForm(emptyAddForm())
     setShowAddForm(false)
     setAddErrors({})
   }
 
   const startEdit = (member: TeamMember) => {
     setEditingId(member.id)
-    setEditForm({ name: member.name, email: member.email, role: (member.role as Role) ?? 'member' })
+    setEditForm({ name: member.name, email: member.email, role: (member.role as Role) ?? 'member', color: member.color ?? MEMBER_COLORS[0] })
     setEditErrors({})
   }
 
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditErrors({})
-  }
+  const cancelEdit = () => { setEditingId(null); setEditErrors({}) }
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault()
     const errors = validateForm(editForm)
     if (Object.keys(errors).length > 0) { setEditErrors(errors); return }
     if (editingId) {
-      onUpdateMember(editingId, {
-        name: editForm.name.trim(),
-        email: editForm.email.trim(),
-        role: editForm.role,
-      })
+      onUpdateMember(editingId, { name: editForm.name.trim(), email: editForm.email.trim(), role: editForm.role, color: editForm.color })
     }
     setEditingId(null)
     setEditErrors({})
@@ -109,7 +139,11 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
           </div>
           {isAdmin && (
             <button
-              onClick={() => { setShowAddForm(!showAddForm); setEditingId(null) }}
+              onClick={() => {
+                if (!showAddForm) setAddForm(emptyAddForm())
+                setShowAddForm(!showAddForm)
+                setEditingId(null)
+              }}
               className="flex items-center gap-1.5 px-3 py-2 bg-outlook-blue text-white text-sm font-medium rounded hover:bg-outlook-blue-hover transition-colors"
             >
               <UserPlus size={15} />
@@ -121,8 +155,17 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
         {/* Add member form */}
         {showAddForm && isAdmin && (
           <div className="bg-white border border-outlook-border rounded-lg p-4 mb-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-outlook-text">New Team Member</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {/* Live avatar preview */}
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 transition-colors"
+                  style={{ backgroundColor: addForm.color }}
+                >
+                  {addForm.name.charAt(0).toUpperCase() || '?'}
+                </div>
+                <h3 className="text-sm font-semibold text-outlook-text">New Team Member</h3>
+              </div>
               <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-outlook-gray rounded">
                 <X size={14} />
               </button>
@@ -137,6 +180,7 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
                     type="text"
                     value={addForm.name}
                     onChange={(e) => setAdd('name', e.target.value)}
+                    autoFocus
                     className={`w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue
                       ${addErrors.name ? 'border-red-400' : 'border-outlook-border'}`}
                     placeholder="Full name"
@@ -170,7 +214,8 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
                   ))}
                 </select>
               </div>
-              <div className="flex justify-end gap-2">
+              <ColorPicker value={addForm.color} onChange={(c) => setAdd('color', c)} />
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
@@ -200,12 +245,12 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
               {team.map((member) =>
                 editingId === member.id ? (
                   /* ── Inline edit row ── */
-                  <li key={member.id} className="px-6 py-3 bg-outlook-blue-light/30">
-                    <form onSubmit={handleSaveEdit} className="space-y-2">
-                      <div className="flex items-center gap-3 mb-2">
+                  <li key={member.id} className="px-6 py-4 bg-outlook-blue-light/30">
+                    <form onSubmit={handleSaveEdit} className="space-y-3">
+                      <div className="flex items-center gap-3 mb-1">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                          style={{ backgroundColor: member.color || '#a19f9d' }}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 transition-colors"
+                          style={{ backgroundColor: editForm.color }}
                         >
                           {editForm.name.charAt(0).toUpperCase() || member.name.charAt(0).toUpperCase()}
                         </div>
@@ -240,73 +285,60 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
                           {editErrors.email && <p className="text-red-500 text-xs mt-0.5">{editErrors.email}</p>}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <label className="block text-xs font-medium text-outlook-text mb-1">Role</label>
-                          <select
-                            value={editForm.role}
-                            onChange={(e) => setEdit('role', e.target.value as Role)}
-                            className="border border-outlook-border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="px-3 py-1.5 text-sm border border-outlook-border rounded hover:bg-outlook-gray"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-outlook-blue text-white rounded hover:bg-outlook-blue-hover"
-                          >
-                            <Check size={13} />
-                            Save
-                          </button>
-                        </div>
+                      <div>
+                        <label className="block text-xs font-medium text-outlook-text mb-1">Role</label>
+                        <select
+                          value={editForm.role}
+                          onChange={(e) => setEdit('role', e.target.value as Role)}
+                          className="border border-outlook-border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <ColorPicker value={editForm.color} onChange={(c) => setEdit('color', c)} />
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-3 py-1.5 text-sm border border-outlook-border rounded hover:bg-outlook-gray"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-outlook-blue text-white rounded hover:bg-outlook-blue-hover"
+                        >
+                          <Check size={13} />
+                          Save
+                        </button>
                       </div>
                     </form>
                   </li>
                 ) : (
                   /* ── Normal display row ── */
                   <li key={member.id} className="flex items-center gap-4 px-6 py-3 hover:bg-outlook-gray/50 group">
-                    {/* Avatar */}
                     <div
                       className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                       style={{ backgroundColor: member.color || '#a19f9d' }}
                     >
                       {member.name.charAt(0).toUpperCase()}
                     </div>
-
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-outlook-text truncate">{member.name}</span>
                         {member.id === currentUser?.id && (
-                          <span className="text-[10px] bg-outlook-blue-light text-outlook-blue px-1.5 py-0.5 rounded font-medium">
-                            You
-                          </span>
+                          <span className="text-[10px] bg-outlook-blue-light text-outlook-blue px-1.5 py-0.5 rounded font-medium">You</span>
                         )}
                       </div>
                       <span className="text-xs text-outlook-text-muted">{member.email}</span>
                     </div>
-
-                    {/* Role + actions */}
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1 text-xs text-outlook-text-muted">
-                        {member.role === 'admin' ? (
-                          <Crown size={12} className="text-outlook-blue" />
-                        ) : (
-                          <User size={12} />
-                        )}
+                        {member.role === 'admin' ? <Crown size={12} className="text-outlook-blue" /> : <User size={12} />}
                         <span className="capitalize">{member.role}</span>
                       </div>
-
                       {isAdmin && (
                         <button
                           onClick={() => startEdit(member)}
@@ -316,7 +348,6 @@ export default function TeamPanel({ team, currentUser, onAddMember, onUpdateMemb
                           <Pencil size={14} />
                         </button>
                       )}
-
                       {isAdmin && member.id !== currentUser?.id && (
                         <button
                           onClick={() => handleRemove(member.id)}

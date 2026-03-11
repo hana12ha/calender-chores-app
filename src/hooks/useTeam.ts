@@ -17,7 +17,7 @@ interface CurrentUser {
 interface UseTeamReturn {
   team: TeamMember[]
   currentUser: CurrentUser | null
-  addMember: (memberData: Omit<TeamMember, 'id' | 'color'>) => TeamMember
+  addMember: (memberData: Omit<TeamMember, 'id'>) => TeamMember
   updateMember: (id: string, updates: Partial<TeamMember>) => void
   removeMember: (id: string) => void
   switchUser: (memberId: string) => void
@@ -36,12 +36,12 @@ export const useTeam = (): UseTeamReturn => {
     saveToStorage(KEYS.TEAM, updated)
   }, [])
 
-  const addMember = useCallback((memberData: Omit<TeamMember, 'id' | 'color'>): TeamMember => {
+  const addMember = useCallback((memberData: Omit<TeamMember, 'id'>): TeamMember => {
     const usedColors = team.map((m) => m.color)
-    const color = MEMBER_COLORS.find((c) => !usedColors.includes(c)) || MEMBER_COLORS[team.length % MEMBER_COLORS.length]
+    const autoColor = MEMBER_COLORS.find((c) => !usedColors.includes(c)) || MEMBER_COLORS[team.length % MEMBER_COLORS.length]
     const member: TeamMember = {
       id: crypto.randomUUID(),
-      color,
+      color: memberData.color || autoColor,
       role: memberData.role ?? 'member',
       name: memberData.name,
       email: memberData.email,

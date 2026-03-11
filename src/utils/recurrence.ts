@@ -34,7 +34,7 @@ export const expandRecurringChore = (chore: Chore, team: TeamMember[] = []): Cho
         rotationIdx++
       }
 
-      instances.push(createInstance(chore, format(current, 'yyyy-MM-dd'), assignedTo))
+      instances.push(createInstance(chore, format(current, 'yyyy-MM-dd'), assignedTo, team))
     }
     current = addDays(current, 1)
   }
@@ -45,23 +45,26 @@ export const expandRecurringChore = (chore: Chore, team: TeamMember[] = []): Cho
 /**
  * Generate instances for a non-recurring chore (single instance).
  */
-export const createSingleInstance = (chore: Chore): ChoreInstance[] => {
-  return [createInstance(chore, chore.dueDate, chore.assignedTo)]
+export const createSingleInstance = (chore: Chore, team: TeamMember[] = []): ChoreInstance[] => {
+  return [createInstance(chore, chore.dueDate, chore.assignedTo, team)]
 }
 
-const createInstance = (chore: Chore, date: string, assignedTo: string | null): ChoreInstance => ({
-  id: crypto.randomUUID(),
-  choreId: chore.id,
-  title: chore.title,
-  assignedTo: assignedTo || null,
-  date,
-  time: chore.dueTime || '09:00',
-  completed: false,
-  completedAt: null,
-  completedNote: '',
-  color: chore.color || '#0078d4',
-  description: chore.description || '',
-})
+const createInstance = (chore: Chore, date: string, assignedTo: string | null, team: TeamMember[] = []): ChoreInstance => {
+  const assigneeColor = assignedTo ? team.find((m) => m.id === assignedTo)?.color : undefined
+  return {
+    id: crypto.randomUUID(),
+    choreId: chore.id,
+    title: chore.title,
+    assignedTo: assignedTo || null,
+    date,
+    time: chore.dueTime || '09:00',
+    completed: false,
+    completedAt: null,
+    completedNote: '',
+    color: assigneeColor || chore.color || '#a19f9d',
+    description: chore.description || '',
+  }
+}
 
 /**
  * Re-expand instances for a chore, preserving completion state of existing instances.
