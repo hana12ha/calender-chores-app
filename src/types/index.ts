@@ -1,3 +1,8 @@
+export interface Category {
+  id: string
+  name: string
+}
+
 export interface Chore {
   id: string
   title: string
@@ -12,6 +17,7 @@ export interface Chore {
   rotationIndex: number
   color: string
   createdBy: string
+  categoryId: string | null
 }
 
 export interface ChoreInstance {
@@ -26,6 +32,7 @@ export interface ChoreInstance {
   completedNote: string
   color: string
   description?: string
+  categoryId: string | null
 }
 
 export interface TeamMember {

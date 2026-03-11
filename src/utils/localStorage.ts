@@ -33,6 +33,7 @@ export const KEYS = {
   TEAM: 'team',
   CURRENT_USER: 'currentUser',
   EMAIL_CONFIG: 'emailConfig',
+  CATEGORIES: 'categories',
 } as const
 
 // Seed demo data if storage is empty
@@ -57,4 +58,11 @@ export const seedDemoData = (): void => {
   saveToStorage(KEYS.CHORES, [])
   saveToStorage(KEYS.CHORE_INSTANCES, [])
   saveToStorage(KEYS.EMAIL_CONFIG, { serviceId: '', templateId: '', publicKey: '' })
+  saveToStorage(KEYS.CATEGORIES, [
+    { id: crypto.randomUUID(), name: 'Kitchen' },
+    { id: crypto.randomUUID(), name: 'Maintenance' },
+    { id: crypto.randomUUID(), name: 'Cleaning' },
+    { id: crypto.randomUUID(), name: 'Office' },
+    { id: crypto.randomUUID(), name: 'Other' },
+  ])
 }

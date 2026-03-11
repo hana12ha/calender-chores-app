@@ -63,6 +63,7 @@ const createInstance = (chore: Chore, date: string, assignedTo: string | null, t
     completedNote: '',
     color: assigneeColor || chore.color || '#a19f9d',
     description: chore.description || '',
+    categoryId: chore.categoryId ?? null,
   }
 }
 

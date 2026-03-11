@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Plus, Pencil, Check, Tag } from 'lucide-react'
 import { format } from 'date-fns'
 import RecurrenceSelector from './RecurrenceSelector'
-import type { Chore, TeamMember } from '../../types'
+import type { Chore, TeamMember, Category } from '../../types'
 
 type ChoreFormData = Omit<Chore, 'id' | 'rotationIndex' | 'createdBy'> & {
   id?: string
@@ -23,14 +23,19 @@ const defaultChore: ChoreFormData = {
   assignedTo: null,
   autoRotate: false,
   color: UNASSIGNED_COLOR,
+  categoryId: null,
 }
 
 interface ChoreModalProps {
   chore: Chore | null
   team: TeamMember[]
+  categories: Category[]
   onSave: (formData: ChoreFormData) => void
   onDelete: (id: string) => void
   onClose: () => void
+  onAddCategory: (name: string) => Category
+  onUpdateCategory: (id: string, name: string) => void
+  onDeleteCategory: (id: string) => void
 }
 
 interface FormErrors {
@@ -39,7 +44,144 @@ interface FormErrors {
   recurrenceDays?: string
 }
 
-export default function ChoreModal({ chore, team, onSave, onDelete, onClose }: ChoreModalProps) {
+// ── Inline category manager ──────────────────────────────────────────────────
+
+interface CategoryManagerProps {
+  categories: Category[]
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+  onAdd: (name: string) => Category
+  onUpdate: (id: string, name: string) => void
+  onDelete: (id: string) => void
+}
+
+function CategoryManager({ categories, selectedId, onSelect, onAdd, onUpdate, onDelete }: CategoryManagerProps) {
+  const [showManager, setShowManager] = useState(false)
+  const [addingName, setAddingName] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+
+  const handleAdd = () => {
+    const name = addingName.trim()
+    if (!name) return
+    const cat = onAdd(name)
+    onSelect(cat.id)
+    setAddingName('')
+  }
+
+  const startEdit = (cat: Category) => {
+    setEditingId(cat.id)
+    setEditingName(cat.name)
+  }
+
+  const saveEdit = () => {
+    if (editingId && editingName.trim()) {
+      onUpdate(editingId, editingName)
+    }
+    setEditingId(null)
+  }
+
+  const handleDelete = (id: string) => {
+    if (selectedId === id) onSelect(null)
+    onDelete(id)
+    if (editingId === id) setEditingId(null)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-sm font-medium text-outlook-text">Category</label>
+        <button
+          type="button"
+          onClick={() => setShowManager((v) => !v)}
+          className="flex items-center gap-1 text-xs text-outlook-blue hover:underline"
+        >
+          <Tag size={11} />
+          {showManager ? 'Done' : 'Manage categories'}
+        </button>
+      </div>
+
+      {/* Category select */}
+      <select
+        value={selectedId || ''}
+        onChange={(e) => onSelect(e.target.value || null)}
+        className="w-full border border-outlook-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-outlook-blue"
+      >
+        <option value="">— No category —</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+
+      {/* Inline manager panel */}
+      {showManager && (
+        <div className="mt-2 border border-outlook-border rounded-lg bg-outlook-gray/50 overflow-hidden">
+          <ul className="divide-y divide-outlook-border">
+            {categories.map((cat) => (
+              <li key={cat.id} className="flex items-center gap-2 px-3 py-2">
+                {editingId === cat.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEdit() } if (e.key === 'Escape') setEditingId(null) }}
+                      autoFocus
+                      className="flex-1 border border-outlook-blue rounded px-2 py-0.5 text-sm focus:outline-none"
+                    />
+                    <button type="button" onClick={saveEdit} className="p-1 text-green-600 hover:bg-green-50 rounded">
+                      <Check size={13} />
+                    </button>
+                    <button type="button" onClick={() => setEditingId(null)} className="p-1 text-outlook-text-muted hover:bg-outlook-gray rounded">
+                      <X size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-outlook-text">{cat.name}</span>
+                    <button type="button" onClick={() => startEdit(cat)} className="p-1 text-outlook-text-muted hover:text-outlook-blue hover:bg-outlook-blue-light rounded">
+                      <Pencil size={12} />
+                    </button>
+                    <button type="button" onClick={() => handleDelete(cat.id)} className="p-1 text-outlook-text-muted hover:text-red-600 hover:bg-red-50 rounded">
+                      <Trash2 size={12} />
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          {/* Add new category */}
+          <div className="flex items-center gap-2 px-3 py-2 border-t border-outlook-border bg-white">
+            <input
+              type="text"
+              value={addingName}
+              onChange={(e) => setAddingName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
+              placeholder="New category name..."
+              className="flex-1 border border-outlook-border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-outlook-blue"
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!addingName.trim()}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-outlook-blue text-white rounded hover:bg-outlook-blue-hover disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus size={12} />
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main modal ────────────────────────────────────────────────────────────────
+
+export default function ChoreModal({
+  chore, team, categories, onSave, onDelete, onClose,
+  onAddCategory, onUpdateCategory, onDeleteCategory,
+}: ChoreModalProps) {
   const isEdit = !!chore?.id
   const [form, setForm] = useState<ChoreFormData>(isEdit ? { ...chore } : { ...defaultChore })
   const [errors, setErrors] = useState<FormErrors>({})
@@ -103,6 +245,16 @@ export default function ChoreModal({ chore, team, onSave, onDelete, onClose }: C
             />
             {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
           </div>
+
+          {/* Category */}
+          <CategoryManager
+            categories={categories}
+            selectedId={form.categoryId ?? null}
+            onSelect={(id) => set('categoryId', id)}
+            onAdd={onAddCategory}
+            onUpdate={onUpdateCategory}
+            onDelete={onDeleteCategory}
+          />
 
           {/* Description */}
           <div>

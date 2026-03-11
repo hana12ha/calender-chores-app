@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { loadFromStorage, saveToStorage, KEYS, seedDemoData } from './utils/localStorage'
 import { useChores } from './hooks/useChores'
 import { useTeam } from './hooks/useTeam'
+import { useCategories } from './hooks/useCategories'
 import type { EmailConfig, ViewType, CalendarView, Chore, ChoreInstance } from './types'
 
 type ChoreFormData = Omit<Chore, 'id' | 'rotationIndex' | 'createdBy'> & {
@@ -49,6 +50,7 @@ export default function App() {
   // Hooks
   const { team, currentUser, addMember, updateMember, removeMember, switchUser } = useTeam()
   const { chores, choreInstances, addChore, updateChore, deleteChore, completeInstance, uncompleteInstance, reassignInstance } = useChores(team)
+  const { categories, addCategory, updateCategory, deleteCategory } = useCategories()
 
   // --- Chore modal handlers ---
   const openNewChore = () => setChoreModal({ chore: null })
@@ -106,6 +108,7 @@ export default function App() {
             chores={chores}
             choreInstances={choreInstances}
             team={team}
+            categories={categories}
             currentUser={currentUser}
             onNewChore={openNewChore}
             onEditChore={openEditChore}
@@ -173,9 +176,13 @@ export default function App() {
         <ChoreModal
           chore={choreModal.chore}
           team={team}
+          categories={categories}
           onSave={handleSaveChore}
           onDelete={handleDeleteChore}
           onClose={closeChoreModal}
+          onAddCategory={addCategory}
+          onUpdateCategory={updateCategory}
+          onDeleteCategory={deleteCategory}
         />
       )}
 

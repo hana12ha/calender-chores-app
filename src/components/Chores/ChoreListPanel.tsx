@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { format, parseISO, isToday, isPast } from 'date-fns'
 import { CheckCircle, Clock, Repeat, User, Plus, Pencil, Trash2, AlertCircle } from 'lucide-react'
-import type { Chore, ChoreInstance, TeamMember } from '../../types'
+import type { Chore, ChoreInstance, TeamMember, Category } from '../../types'
 
 interface CurrentUser {
   id: string
@@ -14,6 +14,7 @@ interface ChoreListPanelProps {
   chores: Chore[]
   choreInstances: ChoreInstance[]
   team: TeamMember[]
+  categories: Category[]
   currentUser: CurrentUser | null
   onNewChore: () => void
   onEditChore: (chore: Chore) => void
@@ -27,6 +28,7 @@ export default function ChoreListPanel({
   chores,
   choreInstances,
   team,
+  categories,
   currentUser,
   onNewChore,
   onEditChore,
@@ -37,6 +39,7 @@ export default function ChoreListPanel({
   const [filter, setFilter] = useState<FilterType>('all')
 
   const getMember = (id: string | null) => id ? team.find((m) => m.id === id) : undefined
+  const getCategory = (id: string | null | undefined) => id ? categories.find((c) => c.id === id) : undefined
 
   const filtered = choreInstances.filter((inst) => {
     if (filter === 'pending') return !inst.completed
@@ -113,6 +116,7 @@ export default function ChoreListPanel({
             {filtered.map((inst) => {
               const member = getMember(inst.assignedTo)
               const chore = chores.find((c) => c.id === inst.choreId)
+              const category = getCategory(chore?.categoryId ?? inst.categoryId)
               let overdue = false
               try {
                 overdue = !inst.completed && isPast(parseISO(inst.date + 'T' + inst.time))
@@ -149,6 +153,11 @@ export default function ChoreListPanel({
                       </span>
                       {chore?.isRecurring && (
                         <Repeat size={11} className="text-outlook-text-muted flex-shrink-0" />
+                      )}
+                      {category && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-outlook-gray-dark text-outlook-text-light font-medium flex-shrink-0">
+                          {category.name}
+                        </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
